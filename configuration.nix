@@ -9,6 +9,7 @@
   system.stateVersion = "24.05";
   system.copySystemConfiguration = true;
   nixpkgs.config.allowUnfree = true;
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 
   fileSystems = {
     "/".options = ["compress-force=zstd:1" "noatime" ];
@@ -37,14 +38,17 @@
     '';
   };
   
-  #hardware.graphics.driSupport32Bit = true;
-  hardware.enableAllFirmware = true;
-  hardware.firmware = [
-    (pkgs.runCommandNoCC "edid.bin" { compressFirmware = false; } ''
-      mkdir -p $out/lib/firmware/edid/
-      cp ${./files/edid.bin} $out/lib/firmware/edid/edid.bin
-    '')
-  ];
+  hardware = {
+    bluetooth.enable = true; # enables support for Bluetooth
+    #bluetooth.powerOnBoot = true;
+    enableAllFirmware = true;
+    firmware = [
+      (pkgs.runCommandNoCC "edid.bin" { compressFirmware = false; } ''
+        mkdir -p $out/lib/firmware/edid/
+        cp ${./files/edid.bin} $out/lib/firmware/edid/edid.bin
+      '')
+    ];
+  };
 
   networking.hostName = "laptop";
   networking.networkmanager.enable = true;
@@ -61,6 +65,7 @@
 
   environment.variables = {
     EDITOR = "vim";
+    MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
   };
 
   users.mutableUsers = false;
@@ -84,9 +89,11 @@
   };
   
   services = {
+    gvfs.enable = true;
     udisks2.enable = true;
     devmon.enable = true;
     flatpak.enable = true;
+    blueman.enable = true;
 
     locate = {
       enable = true;
@@ -120,8 +127,7 @@
       enable = true;
       settings = rec {
         initial_session = {
-          #command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway";
-          #command = "${pkgs.sway}/bin/sway";
+          #command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway -D noscanout";
           command = "dbus-run-session sway -D noscanout";
           user = "robin";
         };
@@ -135,13 +141,16 @@
   
   programs.light.enable = true;
   programs.dconf.enable = true;
+  programs.steam.enable = true;
 
   environment.systemPackages = with pkgs; [
+    duperemove
     file
     htop
     powertop
     neofetch
-    sutils
+    sutils # for clock
+    python3
     vim
     wget
     curl
@@ -153,6 +162,7 @@
     cifs-utils
     pulseaudio
     adwaita-icon-theme
+    protontricks
   ];
 
   home-manager.useGlobalPkgs = true;
@@ -161,18 +171,26 @@
     home.stateVersion = "24.05";
     
     home.packages = with pkgs; [
-      libnotify
-      wl-clipboard
-      wmenu
       dmenu
+      wmenu
+      font-awesome_5
+      libnotify
+      clipman
+      wl-clipboard
       mako
       udiskie
+      pavucontrol
       pcmanfm
       dolphin
-      font-awesome_5
       mprime
       vrrtest
+      gamescope
+      mangohud
     ];
+
+    programs.firefox.enable = true;
+    programs.emacs.enable = true;
+    programs.vscode.enable = true;
     
     home.file = {
       ".vimrc".source = ./files/.vimrc;
@@ -231,19 +249,11 @@
     
     programs.waybar = {
       enable = true;
-      #systemd.enable = true;
       style = "${./files/waybar/style.css}";
     };
     xdg.configFile."waybar/config" = {
       source = "${./files/waybar/config}";
       onChange = "${pkgs.procps}/bin/pkill -u $USER -USR2 waybar || true";
-    };
-
-    services.udiskie = {
-      enable = true;
-      settings = {
-        tray = "always";
-      };
     };
 
     wayland.windowManager.sway = let
@@ -254,7 +264,6 @@
       bk = "#000000e0";
     in {
       enable = true;
-      systemd.enable = true;
       wrapperFeatures.gtk = true;
       config = rec {
         modifier = "Mod4";
@@ -298,8 +307,7 @@
           tap_button_map lrm
           click_method clickfinger
         }
-        exec wl-paste -t text --watch clipman store --no-persist
-        exec mako --background-color=${bg} --text-color=${fg} --border-color=${fg} --default-timeout=10000 --markup=1 --actions=1 --icons=1
+        exec ${./files/startup.sh}
       '';
     };
 
@@ -318,10 +326,6 @@
         scrollback.lines = 10000;
       };
     };
-
-    programs.firefox.enable = true;
-    programs.emacs.enable = true;
-    programs.vscode.enable = true;
   };
 }
 
