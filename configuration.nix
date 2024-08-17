@@ -1,5 +1,12 @@
 { config, lib, pkgs, ... }:
 
+let
+  username = "robin";
+  homeDir = "/home/${username}";
+  configDir = "${homeDir}/.config";
+  stateDir = "${homeDir}/.local/state";
+  terminal = "foot";
+in
 {
   imports = [
     /etc/nixos/hardware-configuration.nix
@@ -35,6 +42,7 @@
       blacklist uvcvideo
       blacklist pcspkr
       options usbhid mousepoll=8
+      options usbcore autosuspend=-1
     '';
   };
   
@@ -52,8 +60,8 @@
 
   networking.hostName = "laptop";
   networking.networkmanager.enable = true;
-  #networking.firewall.allowedTCPPorts = [ ... ];
-  #networking.firewall.allowedUDPPorts = [ ... ];
+  #networking.firewall.allowedTCPPorts = [];
+  #networking.firewall.allowedUDPPorts = [];
 
   time.timeZone = "Europe/Oslo";
   i18n.defaultLocale = "en_US.UTF-8";
@@ -63,16 +71,23 @@
     keyMap = "no";
   };
 
+  fonts.packages = with pkgs; [
+    ttf-envy-code-r
+    (nerdfonts.override { fonts = [ "EnvyCodeR" ]; })
+  ];
+
+  environment.shells = [ pkgs.zsh ];
   environment.variables = {
     EDITOR = "vim";
     MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
   };
 
   users.mutableUsers = false;
-  users.users.robin = {
+  users.defaultUserShell = pkgs.zsh;
+  users.users.${username} = {
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" ];
-    hashedPasswordFile = "/persist/passwords/robin";
+    hashedPasswordFile = "/persist/passwords/${username}";
   };
 
   powerManagement = {
@@ -94,6 +109,8 @@
     devmon.enable = true;
     flatpak.enable = true;
     blueman.enable = true;
+    dbus.enable = true;
+    dbus.implementation = "broker";
 
     locate = {
       enable = true;
@@ -101,19 +118,13 @@
       localuser = null;
     };
 
-    udev.extraRules = ''
-      ACTION=="add", SUBSYSTEM=="input", TEST=="power/control", ATTR{power/control}="on"
-    '';
-
     xserver = {
       enable = true;
       videoDrivers = [ "amdgpu" ];
       xkb.layout = "no";
       xkb.options = "ctrl:nocaps";
+      excludePackages = [ pkgs.xterm ];
     };
-
-    dbus.enable = true;
-    dbus.implementation = "broker";
 
     pipewire = {
       enable = true;
@@ -129,7 +140,7 @@
         initial_session = {
           #command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway -D noscanout";
           command = "dbus-run-session sway -D noscanout";
-          user = "robin";
+          user = username;
         };
         default_session = initial_session;
       };
@@ -139,6 +150,7 @@
   security.rtkit.enable = true;
   security.polkit.enable = true;
   
+  programs.zsh.enable = true;
   programs.light.enable = true;
   programs.dconf.enable = true;
   programs.steam.enable = true;
@@ -147,11 +159,15 @@
     duperemove
     file
     htop
+    usbutils
+    pciutils
     powertop
     neofetch
+    lm_sensors
     sutils # for clock
     python3
     vim
+    ranger
     wget
     curl
     killall
@@ -160,19 +176,18 @@
     rar
     unzip
     cifs-utils
+    samba
     pulseaudio
     adwaita-icon-theme
-    protontricks
   ];
 
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
-  home-manager.users.robin = { pkgs, ... }: {
+  home-manager.users.${username} = { pkgs, ... }: {
     home.stateVersion = "24.05";
     
     home.packages = with pkgs; [
       dmenu
-      wmenu
       font-awesome_5
       libnotify
       clipman
@@ -182,15 +197,78 @@
       pavucontrol
       pcmanfm
       dolphin
+      swayimg
+      (calibre.override { unrarSupport = true; })
+      (pkgs.writeShellScriptBin "wranger" ''
+        #!/usr/bin/env sh
+        exec ${terminal} -e ranger "$@"
+      '')
+      (pkgs.writeShellScriptBin "toggleboost" ''
+        #!/usr/bin/env sh
+        if grep -q 0 /sys/devices/system/cpu/cpufreq/boost; then 
+          echo "1" | sudo tee /sys/devices/system/cpu/cpufreq/boost
+        else
+          echo "0" | sudo tee /sys/devices/system/cpu/cpufreq/boost
+        fi
+      '')
+
       mprime
       vrrtest
       gamescope
       mangohud
-    ];
+      protontricks
+      wine
 
-    programs.firefox.enable = true;
+      scummvm
+      exult
+      fheroes2
+      openttd
+      openrct2
+      openra
+      corsix-th
+      devilutionx
+      dosbox-staging
+      dolphin-emu
+      ppsspp
+      (retroarch.override {
+        cores = with libretro; [
+          mgba
+          snes9x
+        ];
+      })
+    ];
     programs.emacs.enable = true;
     programs.vscode.enable = true;
+    programs.zathura.enable = true;
+    programs.firefox.enable = true;
+
+    programs.fuzzel = {
+      enable = true;
+      settings = {
+        main = {
+          inherit terminal;
+          font = "monospace:size=8";
+          fields = "filename,name,categories";
+          lines = 40;
+          width = 60;
+        };
+        colors = {
+          background = "1e1e2edd";
+          text = "cdd6f4ff";
+          match = "89b4faff";
+          selection = "585b70ff";
+          selection-match = "89b4faff";
+          selection-text = "cdd6f4ff";
+          border = "b4befeff";
+        };
+      };
+    };
+
+    home.sessionVariables = rec {
+      BROWSER = "firefox";
+      TERMINAL = terminal;
+      ZDOTDIR = "${configDir}/zsh";
+    };
     
     home.file = {
       ".vimrc".source = ./files/.vimrc;
@@ -211,16 +289,28 @@
     xdg = {
       enable = true;
       mime.enable = true;
+      desktopEntries = {
+        wranger = {
+          name = "Ranger";
+          genericName = "File Manager";
+          exec = "wranger";
+          terminal = false;
+          categories = ["System"];
+          mimeType = ["inode/directory"];
+        };
+      };
       mimeApps = {
         enable = true;
         defaultApplications = {
-          #"application/pdf" = ["evince.desktop"];
-          "inode/directory" = ["pcmanfm.desktop"];
-          "text/html" = "firefox.desktop";
-          "application/xhtml+xml" = "firefox.desktop";
-          "x-scheme-handler/chrome" = "firefox.desktop";
-          "x-scheme-handler/http" = "firefox.desktop";
-          "x-scheme-handler/https" = "firefox.desktop";
+          "inode/directory" = ["wranger.desktop"];
+          "text/html" = ["firefox.desktop"];
+          "application/xhtml+xml" = ["firefox.desktop"];
+          "x-scheme-handler/chrome" = ["firefox.desktop"];
+          "x-scheme-handler/http" = ["firefox.desktop"];
+          "x-scheme-handler/https" = ["firefox.desktop"];
+          "application/pdf" = ["zathura.desktop"];
+          "image/jpeg" = ["swayimg.desktop"];
+          "image/png" = ["swayimg.desktop"];
         };
       };
       userDirs = {
@@ -257,6 +347,7 @@
     };
 
     wayland.windowManager.sway = let
+      modifier = "Mod4";
       bg = "#171717e0";
       fg = "#ffffffe0";
       br = "#323232e0";
@@ -266,10 +357,9 @@
       enable = true;
       wrapperFeatures.gtk = true;
       config = rec {
-        modifier = "Mod4";
-        terminal = "foot";
-        menu = "dmenu_path | wmenu -p 'Run:' -f 'DejaVu Sans 13' -N '#000000' -n '#808080' -s '#ffffff' -m '#ffffff' | xargs swaymsg exec --";
-        defaultWorkspace = "1";
+        inherit modifier terminal;
+        menu = "dmenu_path | fuzzel --dmenu | xargs swaymsg exec --";
+        defaultWorkspace = "workspace number 1";
         focus.followMouse = false;
         colors = {
           focused =         { border = br; background = br; text = fg; indicator = ia; childBorder = br; };
@@ -284,13 +374,16 @@
       extraConfig = ''
         default_border pixel 1
         default_floating_border normal 1
+        bindsym ${modifier}+p exec wranger
+        bindsym ${modifier}+m exec fuzzel
+        bindsym ${modifier}+Backspace kill
         bindsym XF86MonBrightnessDown exec light -U 10
         bindsym XF86MonBrightnessUp exec light -A 10
         bindsym XF86AudioRaiseVolume exec 'pactl set-sink-volume @DEFAULT_SINK@ +1%'
         bindsym XF86AudioLowerVolume exec 'pactl set-sink-volume @DEFAULT_SINK@ -1%'
         bindsym XF86AudioMute exec 'pactl set-sink-mute @DEFAULT_SINK@ toggle'
         bindsym XF86AudioMicMute exec 'pactl set-source-mute @DEFAULT_SOURCE@ toggle'
-        output * bg ${./files/stars.jpg} fill
+        output * bg ${./files/wallpaper.jpg} fill
         output * adaptive_sync on
         input type:keyboard {
           xkb_layout "no"
@@ -311,12 +404,35 @@
       '';
     };
 
+    programs.zsh = {
+      enable = true;
+      enableCompletion = true;
+      autosuggestion.enable = true;
+      syntaxHighlighting.enable = true;
+      autocd = true;
+      defaultKeymap = "emacs";
+      dotDir = ".config/zsh";
+      shellAliases = {
+        ll = "ls -l";
+        lla = "ls -la";
+        nixbuild = "sudo nixos-rebuild switch -I nixos-config=${homeDir}/dotfiles/configuration.nix";
+        nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${homeDir}/dotfiles/configuration.nix";
+        nixdiff = "nix profile diff-closures --profile /nix/var/nix/profiles/system --extra-experimental-features nix-command";
+        nixgc = "sudo nix-collect-garbage --delete-older-than 2d && sudo nix-env --list-generations --profile /nix/var/nix/profiles/system";
+      };
+      history.size = 10000;
+      history.path = "${stateDir}/zsh_history";
+    };
+
     programs.foot = {
       enable = true;
       settings = {
-        main = {
-          font = "monospace:size=9";
+        main = rec {
+          font = "EnvyCodeR Nerd Font:size=10";
+          font-bold = font;
+          font-italic = font;
           selection-target = "both";
+          bold-text-in-bright = true;
         };
         colors = {
           alpha = 0.92;
