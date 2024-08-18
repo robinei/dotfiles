@@ -73,13 +73,13 @@ in
 
   fonts.packages = with pkgs; [
     ttf-envy-code-r
+    font-awesome_5
     (nerdfonts.override { fonts = [ "EnvyCodeR" ]; })
   ];
 
   environment.shells = [ pkgs.zsh ];
   environment.variables = {
     EDITOR = "vim";
-    MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
   };
 
   users.mutableUsers = false;
@@ -155,6 +155,12 @@ in
   programs.dconf.enable = true;
   programs.steam.enable = true;
 
+  qt = {
+    enable = true;
+    platformTheme = "qt5ct";
+    style= "kvantum";
+  };
+
   environment.systemPackages = with pkgs; [
     duperemove
     file
@@ -178,7 +184,7 @@ in
     cifs-utils
     samba
     pulseaudio
-    adwaita-icon-theme
+    libsForQt5.qt5ct
   ];
 
   home-manager.useGlobalPkgs = true;
@@ -187,46 +193,49 @@ in
     home.stateVersion = "24.05";
     
     home.packages = with pkgs; [
-      dmenu
-      font-awesome_5
-      libnotify
+      # system utils
       clipman
       wl-clipboard
+      libnotify
       mako
       udiskie
+      
+      # appearance
+      (catppuccin-kvantum.override {
+        accent = "Blue";
+        variant = "Mocha";
+      })
+      libsForQt5.qtstyleplugin-kvantum
+      papirus-folders
+
+      # applications
       pavucontrol
-      pcmanfm
       dolphin
+      pcmanfm
       swayimg
       (calibre.override { unrarSupport = true; })
-      (pkgs.writeShellScriptBin "wranger" ''
-        #!/usr/bin/env sh
-        exec ${terminal} -e ranger "$@"
-      '')
-      (pkgs.writeShellScriptBin "toggleboost" ''
-        #!/usr/bin/env sh
-        if grep -q 0 /sys/devices/system/cpu/cpufreq/boost; then 
-          echo "1" | sudo tee /sys/devices/system/cpu/cpufreq/boost
-        else
-          echo "0" | sudo tee /sys/devices/system/cpu/cpufreq/boost
-        fi
-      '')
 
+      # gameutils/monitoring/performance
       mprime
       vrrtest
       gamescope
       mangohud
       protontricks
-      wine
 
-      scummvm
+      # games
       exult
       fheroes2
       openttd
       openrct2
+      openxcom
       openra
+      openmw
       corsix-th
       devilutionx
+
+      # "emulators"
+      wine
+      scummvm
       dosbox-staging
       dolphin-emu
       ppsspp
@@ -236,7 +245,26 @@ in
           snes9x
         ];
       })
+
+      # scripts
+      (pkgs.writeShellScriptBin "fm" ''
+        #!/usr/bin/env sh
+        if [ "$TERM" == "${terminal}" ]; then
+          exec ranger "$@"
+        else
+          exec ${terminal} -e ranger "$@"
+        fi
+      '')
+      (pkgs.writeShellScriptBin "toggleboost" ''
+        #!/usr/bin/env sh
+        if grep -q 0 /sys/devices/system/cpu/cpufreq/boost; then 
+          echo "1" | sudo tee /sys/devices/system/cpu/cpufreq/boost
+        else
+          echo "0" | sudo tee /sys/devices/system/cpu/cpufreq/boost
+        fi
+      '')
     ];
+
     programs.emacs.enable = true;
     programs.vscode.enable = true;
     programs.zathura.enable = true;
@@ -266,8 +294,9 @@ in
 
     home.sessionVariables = rec {
       BROWSER = "firefox";
-      TERMINAL = terminal;
       ZDOTDIR = "${configDir}/zsh";
+      MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
+      QT_QPA_PLATFORMTHEME = "qt5ct";
     };
     
     home.file = {
@@ -290,10 +319,10 @@ in
       enable = true;
       mime.enable = true;
       desktopEntries = {
-        wranger = {
+        rangerfm = {
           name = "Ranger";
           genericName = "File Manager";
-          exec = "wranger";
+          exec = "fm";
           terminal = false;
           categories = ["System"];
           mimeType = ["inode/directory"];
@@ -302,7 +331,7 @@ in
       mimeApps = {
         enable = true;
         defaultApplications = {
-          "inode/directory" = ["wranger.desktop"];
+          "inode/directory" = ["rangerfm.desktop"];
           "text/html" = ["firefox.desktop"];
           "application/xhtml+xml" = ["firefox.desktop"];
           "x-scheme-handler/chrome" = ["firefox.desktop"];
@@ -319,23 +348,57 @@ in
       };
     };
 
+    # Cursor setup
+    home.pointerCursor = {
+      name = "Catppuccin-Mocha-Lavender-Cursors";
+      package = pkgs.catppuccin-cursors.mochaLavender;
+      gtk.enable = true;
+      size = 16;
+    };
+    # GTK Setup
     gtk = {
       enable = true;
-      #font.name = "Victor Mono SemiBold 12";
       theme = {
-        name = "Adwaita-dark";
-        package = pkgs.gnome-themes-extra;
+        name = "Catppuccin-Mocha-Standard-Blue-Dark";
+        package = pkgs.catppuccin-gtk.override {
+          accents = [ "blue" ];
+          size = "standard";
+          variant = "mocha";
+        };
       };
+      iconTheme = {
+        #name = "Catppuccin-Mocha-Blue";
+        name = "cat-mocha-blue";
+        package = pkgs.catppuccin-papirus-folders.override {
+          flavor = "mocha";
+          accent = "blue";
+        };
+      };
+      cursorTheme = {
+        name = "Catppuccin-Mocha-Lavender-Cursors";
+        package = pkgs.catppuccin-cursors.mochaLavender;
+      };
+      gtk3 = {
+        extraConfig.gtk-application-prefer-dark-theme = true;
+      };
+    };
+    dconf.settings = {
+      "org/gtk/settings/file-chooser" = {
+        sort-directories-first = true;
+      };
+      "org/gnome/desktop/interface" = {
+        gtk-theme = "Catppuccin-Mocha-Standard-Blue-Dark";
+        color-scheme = "prefer-dark";
+      };
+    };
+    xdg.configFile."Kvantum/kvantum.kvconfig".source = (pkgs.formats.ini { }).generate "kvantum.kvconfig" {
+      General.theme = "Catppuccin-Mocha-Blue";
+    };
+    xdg.configFile."qt5ct/qt5ct.conf".source = (pkgs.formats.ini { }).generate "qt5ct.conf" {
+      Appearance.icon_theme = "Papirus-Dark";
     };
 
-    qt = {
-      enable = true;
-      platformTheme.name = "adwaita";
-      style = {
-        name = "adwaita-dark";
-        package = pkgs.adwaita-qt;
-      };
-    };
+
     
     programs.waybar = {
       enable = true;
@@ -353,12 +416,21 @@ in
       br = "#323232e0";
       ia = "#ffffffe0";
       bk = "#000000e0";
+      startupScript = builtins.toFile "startup.sh" ''
+        systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+
+        wl-paste -t text --watch clipman store --no-persist &
+        mako --background-color=#171717e0 --text-color=#ffffffe0 --border-color=#ffffffe0 --default-timeout=10000 --markup=1 --actions=1 --icons=1 &
+        udiskie --notify --automount --tray --appindicator --file-manager pcmanfm &
+        blueman-applet &
+        wait
+      '';
     in {
       enable = true;
       wrapperFeatures.gtk = true;
       config = rec {
         inherit modifier terminal;
-        menu = "dmenu_path | fuzzel --dmenu | xargs swaymsg exec --";
+        menu = "fuzzel --list-executables-in-path";
         defaultWorkspace = "workspace number 1";
         focus.followMouse = false;
         colors = {
@@ -374,7 +446,7 @@ in
       extraConfig = ''
         default_border pixel 1
         default_floating_border normal 1
-        bindsym ${modifier}+p exec wranger
+        bindsym ${modifier}+p exec fm
         bindsym ${modifier}+m exec fuzzel
         bindsym ${modifier}+Backspace kill
         bindsym XF86MonBrightnessDown exec light -U 10
@@ -400,7 +472,7 @@ in
           tap_button_map lrm
           click_method clickfinger
         }
-        exec ${./files/startup.sh}
+        exec sh ${startupScript}
       '';
     };
 
@@ -414,7 +486,7 @@ in
       dotDir = ".config/zsh";
       shellAliases = {
         ll = "ls -l";
-        lla = "ls -la";
+        la = "ls -la";
         nixbuild = "sudo nixos-rebuild switch -I nixos-config=${homeDir}/dotfiles/configuration.nix";
         nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${homeDir}/dotfiles/configuration.nix";
         nixdiff = "nix profile diff-closures --profile /nix/var/nix/profiles/system --extra-experimental-features nix-command";
