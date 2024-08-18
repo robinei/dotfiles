@@ -146,6 +146,12 @@ in
       };
     };
   };
+
+  qt = {
+    enable = true;
+    platformTheme = "gnome";
+    style = "adwaita-dark";
+  };
   
   security.rtkit.enable = true;
   security.polkit.enable = true;
@@ -154,12 +160,6 @@ in
   programs.light.enable = true;
   programs.dconf.enable = true;
   programs.steam.enable = true;
-
-  qt = {
-    enable = true;
-    platformTheme = "qt5ct";
-    style= "kvantum";
-  };
 
   environment.systemPackages = with pkgs; [
     duperemove
@@ -184,7 +184,6 @@ in
     cifs-utils
     samba
     pulseaudio
-    libsForQt5.qt5ct
   ];
 
   home-manager.useGlobalPkgs = true;
@@ -199,19 +198,9 @@ in
       libnotify
       mako
       udiskie
-      
-      # appearance
-      (catppuccin-kvantum.override {
-        accent = "Blue";
-        variant = "Mocha";
-      })
-      libsForQt5.qtstyleplugin-kvantum
-      papirus-folders
 
       # applications
       pavucontrol
-      dolphin
-      pcmanfm
       swayimg
       (calibre.override { unrarSupport = true; })
 
@@ -296,7 +285,6 @@ in
       BROWSER = "firefox";
       ZDOTDIR = "${configDir}/zsh";
       MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
-      QT_QPA_PLATFORMTHEME = "qt5ct";
     };
     
     home.file = {
@@ -319,6 +307,11 @@ in
       enable = true;
       mime.enable = true;
       desktopEntries = {
+        ranger = {
+          name = "Ranger (hidden)";
+          exec = "ranger";
+          noDisplay = true;
+        };
         rangerfm = {
           name = "Ranger";
           genericName = "File Manager";
@@ -348,57 +341,25 @@ in
       };
     };
 
-    # Cursor setup
-    home.pointerCursor = {
-      name = "Catppuccin-Mocha-Lavender-Cursors";
-      package = pkgs.catppuccin-cursors.mochaLavender;
-      gtk.enable = true;
-      size = 16;
+    qt = {
+      enable = true;
+      platformTheme.name = "adwaita";
+      style = {
+        name = "adwaita-dark";
+      };
     };
-    # GTK Setup
+
     gtk = {
       enable = true;
       theme = {
-        name = "Catppuccin-Mocha-Standard-Blue-Dark";
-        package = pkgs.catppuccin-gtk.override {
-          accents = [ "blue" ];
-          size = "standard";
-          variant = "mocha";
-        };
+        name = "Adwaita-dark";
+        package = pkgs.gnome-themes-extra;
       };
       iconTheme = {
-        #name = "Catppuccin-Mocha-Blue";
-        name = "cat-mocha-blue";
-        package = pkgs.catppuccin-papirus-folders.override {
-          flavor = "mocha";
-          accent = "blue";
-        };
-      };
-      cursorTheme = {
-        name = "Catppuccin-Mocha-Lavender-Cursors";
-        package = pkgs.catppuccin-cursors.mochaLavender;
-      };
-      gtk3 = {
-        extraConfig.gtk-application-prefer-dark-theme = true;
+        name = "Adwaita";
+        package = pkgs.adwaita-icon-theme;
       };
     };
-    dconf.settings = {
-      "org/gtk/settings/file-chooser" = {
-        sort-directories-first = true;
-      };
-      "org/gnome/desktop/interface" = {
-        gtk-theme = "Catppuccin-Mocha-Standard-Blue-Dark";
-        color-scheme = "prefer-dark";
-      };
-    };
-    xdg.configFile."Kvantum/kvantum.kvconfig".source = (pkgs.formats.ini { }).generate "kvantum.kvconfig" {
-      General.theme = "Catppuccin-Mocha-Blue";
-    };
-    xdg.configFile."qt5ct/qt5ct.conf".source = (pkgs.formats.ini { }).generate "qt5ct.conf" {
-      Appearance.icon_theme = "Papirus-Dark";
-    };
-
-
     
     programs.waybar = {
       enable = true;
@@ -421,7 +382,7 @@ in
 
         wl-paste -t text --watch clipman store --no-persist &
         mako --background-color=#171717e0 --text-color=#ffffffe0 --border-color=#ffffffe0 --default-timeout=10000 --markup=1 --actions=1 --icons=1 &
-        udiskie --notify --automount --tray --appindicator --file-manager pcmanfm &
+        udiskie --notify --automount --tray --appindicator --file-manager fm &
         blueman-applet &
         wait
       '';
