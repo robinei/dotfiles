@@ -1,12 +1,5 @@
 { config, lib, pkgs, ... }:
 
-let
-  username = "robin";
-  homeDir = "/home/${username}";
-  configDir = "${homeDir}/.config";
-  stateDir = "${homeDir}/.local/state";
-  terminal = "foot";
-in
 {
   imports = [
     /etc/nixos/hardware-configuration.nix
@@ -47,7 +40,7 @@ in
   };
   
   hardware = {
-    bluetooth.enable = true; # enables support for Bluetooth
+    bluetooth.enable = true;
     #bluetooth.powerOnBoot = true;
     enableAllFirmware = true;
     firmware = [
@@ -79,15 +72,15 @@ in
 
   environment.shells = [ pkgs.zsh ];
   environment.variables = {
-    EDITOR = "vim";
+    EDITOR = "hx";
   };
 
   users.mutableUsers = false;
   users.defaultUserShell = pkgs.zsh;
-  users.users.${username} = {
+  users.users.robin = {
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" ];
-    hashedPasswordFile = "/persist/passwords/${username}";
+    hashedPasswordFile = "/persist/passwords/robin";
   };
 
   powerManagement = {
@@ -99,8 +92,11 @@ in
   xdg.portal = {
     wlr.enable = true;
     config.common.default = "*";
-    extraPortals = [ pkgs.xdg-desktop-portal-wlr pkgs.xdg-desktop-portal-gtk ];
-    xdgOpenUsePortal = true;
+    extraPortals = [
+      pkgs.xdg-desktop-portal-wlr
+      pkgs.xdg-desktop-portal-gtk
+    ];
+    #xdgOpenUsePortal = true; # does not respect host mimeapps: https://github.com/flatpak/xdg-desktop-portal-gtk/issues/436
   };
   
   services = {
@@ -140,7 +136,7 @@ in
         initial_session = {
           #command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway -D noscanout";
           command = "dbus-run-session sway -D noscanout";
-          user = username;
+          user = "robin";
         };
         default_session = initial_session;
       };
@@ -156,6 +152,7 @@ in
   security.rtkit.enable = true;
   security.polkit.enable = true;
   
+  programs.ssh.startAgent = true;
   programs.zsh.enable = true;
   programs.light.enable = true;
   programs.dconf.enable = true;
@@ -168,11 +165,9 @@ in
     usbutils
     pciutils
     powertop
-    neofetch
     lm_sensors
     sutils # for clock
     python3
-    vim
     ranger
     wget
     curl
@@ -188,7 +183,9 @@ in
 
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
-  home-manager.users.${username} = { pkgs, ... }: {
+  home-manager.users.robin = { config, pkgs, ... }: let
+    terminal = "foot";
+  in {
     home.stateVersion = "24.05";
     
     home.packages = with pkgs; [
@@ -200,6 +197,7 @@ in
       udiskie
 
       # applications
+      zed-editor
       pavucontrol
       swayimg
       (calibre.override { unrarSupport = true; })
@@ -236,6 +234,10 @@ in
       })
 
       # scripts
+      (pkgs.writeShellScriptBin "steamlite" ''
+        #!/usr/bin/env sh
+        exec steam -nofriendsui -no-browser +open "steam://open/minigameslist" 
+      '')
       (pkgs.writeShellScriptBin "fm" ''
         #!/usr/bin/env sh
         if [ "$TERM" == "${terminal}" ]; then
@@ -254,7 +256,7 @@ in
       '')
     ];
 
-    programs.emacs.enable = true;
+    #programs.emacs.enable = true;
     programs.vscode.enable = true;
     programs.zathura.enable = true;
     programs.firefox.enable = true;
@@ -283,13 +285,16 @@ in
 
     home.sessionVariables = rec {
       BROWSER = "firefox";
-      ZDOTDIR = "${configDir}/zsh";
+      DEFAULT_BROWSER = BROWSER;
+      ZDOTDIR = "${config.xdg.configHome}/zsh";
       MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
+      GTK_THEME = "Adwaita:dark";
     };
+    #systemd.user.sessionVariables = config.home.sessionVariables;
     
     home.file = {
-      ".vimrc".source = ./files/.vimrc;
-      ".emacs".source = ./files/.emacs;
+      #".vimrc".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/files/.vimrc";
+      #".emacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/files/.emacs";
     };
 
     programs.git = {
@@ -298,42 +303,49 @@ in
       userName = "Robin Eidissen";
       userEmail = "robinei@gmail.com";
       extraConfig = {
-        core.editor = "vim";
+        core.editor = "hx";
         credential.helper = "cache";
       };
     };
 
     xdg = {
       enable = true;
-      mime.enable = true;
-      desktopEntries = {
-        ranger = {
-          name = "Ranger (hidden)";
-          exec = "ranger";
-          noDisplay = true;
-        };
-        rangerfm = {
+      desktopEntries = let hidden = { name = "Hidden"; exec = "true"; noDisplay = true; }; in
+      {
+        "org.codeberg.dnkl.foot-server" = hidden;
+        "org.codeberg.dnkl.footclient" = hidden;
+        #"emacsclient" = hidden;
+        "ranger" = hidden;
+        "rangerfm" = {
           name = "Ranger";
-          genericName = "File Manager";
+          icon = "foot";
           exec = "fm";
-          terminal = false;
           categories = ["System"];
           mimeType = ["inode/directory"];
+        };
+        "steamlite" = {
+          name = "Steam Lite";
+          icon = "steam";
+          exec = "steamlite";
+          categories = ["Game"];
         };
       };
       mimeApps = {
         enable = true;
         defaultApplications = {
-          "inode/directory" = ["rangerfm.desktop"];
-          "text/html" = ["firefox.desktop"];
-          "application/xhtml+xml" = ["firefox.desktop"];
-          "x-scheme-handler/chrome" = ["firefox.desktop"];
-          "x-scheme-handler/http" = ["firefox.desktop"];
-          "x-scheme-handler/https" = ["firefox.desktop"];
-          "application/pdf" = ["zathura.desktop"];
-          "image/jpeg" = ["swayimg.desktop"];
-          "image/png" = ["swayimg.desktop"];
+          "inode/directory"         = "rangerfm.desktop";
+          "text/html"               = "firefox.desktop";
+          "text/xml"                = "firefox.desktop";
+          "application/xhtml+xml"   = "firefox.desktop";
+          "x-scheme-handler/http"   = "firefox.desktop";
+          "x-scheme-handler/https"  = "firefox.desktop";
+          "application/pdf"         = "zathura.desktop";
+          "application/epub+zip"    = "calibre-ebook-viewer.desktop";
+          "image/jpeg"              = "swayimg.desktop";
+          "image/png"               = "swayimg.desktop";
         };
+        associations.removed = {};
+        associations.added = {};
       };
       userDirs = {
         enable = true;
@@ -358,6 +370,17 @@ in
       iconTheme = {
         name = "Adwaita";
         package = pkgs.adwaita-icon-theme;
+      };
+      gtk3.extraConfig.gtk-application-prefer-dark-theme = 1;
+      gtk4.extraConfig.gtk-application-prefer-dark-theme = 1;
+    };
+
+    dconf = {
+      enable = true;
+      settings = {
+        "org/gnome/desktop/interface" = {
+          color-scheme = "prefer-dark";
+        };
       };
     };
     
@@ -389,7 +412,7 @@ in
     in {
       enable = true;
       wrapperFeatures.gtk = true;
-      config = rec {
+      config = {
         inherit modifier terminal;
         menu = "fuzzel --list-executables-in-path";
         defaultWorkspace = "workspace number 1";
@@ -437,6 +460,16 @@ in
       '';
     };
 
+    programs.helix = {
+      enable = true;
+      settings = {
+        theme = "adwaita-dark";
+        editor = {
+          cursorline = true;
+        };
+      };
+    };
+
     programs.zsh = {
       enable = true;
       enableCompletion = true;
@@ -448,13 +481,33 @@ in
       shellAliases = {
         ll = "ls -l";
         la = "ls -la";
-        nixbuild = "sudo nixos-rebuild switch -I nixos-config=${homeDir}/dotfiles/configuration.nix";
-        nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${homeDir}/dotfiles/configuration.nix";
+        lsapps = "ls -l .local/share/applications /run/current-system/sw/share/applications /etc/profiles/per-user/robin/share/applications";
+        nixbuild = "sudo nixos-rebuild switch -I nixos-config=${config.home.homeDirectory}/dotfiles/configuration.nix";
+        nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${config.home.homeDirectory}/dotfiles/configuration.nix";
         nixdiff = "nix profile diff-closures --profile /nix/var/nix/profiles/system --extra-experimental-features nix-command";
         nixgc = "sudo nix-collect-garbage --delete-older-than 2d && sudo nix-env --list-generations --profile /nix/var/nix/profiles/system";
       };
       history.size = 10000;
-      history.path = "${stateDir}/zsh_history";
+      history.path = "${config.xdg.stateHome}/zsh_history";
+      initExtra = ''
+        _urlencode() {
+          local length="''${#1}"
+          for (( i = 0; i < length; i++ )); do
+            local c="''${1:$i:1}"
+            case $c in
+              %) printf '%%%02X' "'$c" ;;
+              *) printf "%s" "$c" ;;
+            esac
+          done
+        }
+
+        osc7_cwd() {
+          printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$(_urlencode "$PWD")"
+        }
+
+        autoload -Uz add-zsh-hook
+        add-zsh-hook -Uz chpwd osc7_cwd
+      '';
     };
 
     programs.foot = {
