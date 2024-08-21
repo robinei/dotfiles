@@ -30,12 +30,11 @@
     loader.systemd-boot.enable = true;
     loader.efi.canTouchEfiVariables = true;
     kernelPackages = pkgs.linuxPackages_zen;
-    kernelParams = ["drm.edid_firmware=edid/edid.bin"];
+    kernelParams = ["drm.edid_firmware=edid/edid.bin" "mitigations=off"];
     extraModprobeConfig = ''
       blacklist uvcvideo
       blacklist pcspkr
       options usbhid mousepoll=8
-      options usbcore autosuspend=-1
     '';
   };
   
@@ -70,13 +69,7 @@
     (nerdfonts.override { fonts = [ "EnvyCodeR" ]; })
   ];
 
-  environment.shells = [ pkgs.zsh ];
-  environment.variables = {
-    EDITOR = "hx";
-  };
-
   users.mutableUsers = false;
-  users.defaultUserShell = pkgs.zsh;
   users.users.robin = {
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" ];
@@ -100,7 +93,6 @@
   };
   
   services = {
-    gvfs.enable = true;
     udisks2.enable = true;
     devmon.enable = true;
     flatpak.enable = true;
@@ -126,8 +118,6 @@
       enable = true;
       alsa.enable = true;
       pulse.enable = true;
-      jack.enable = true;
-      wireplumber.enable = true;
     };
 
     greetd = {
@@ -145,7 +135,6 @@
 
   qt = {
     enable = true;
-    platformTheme = "gnome";
     style = "adwaita-dark";
   };
   
@@ -153,7 +142,7 @@
   security.polkit.enable = true;
   
   programs.ssh.startAgent = true;
-  programs.zsh.enable = true;
+  programs.fish.enable = true;
   programs.light.enable = true;
   programs.dconf.enable = true;
   programs.steam.enable = true;
@@ -168,14 +157,12 @@
     lm_sensors
     sutils # for clock
     python3
-    ranger
     wget
     curl
     killall
     jq
-    p7zip
-    rar
-    unzip
+    ouch
+    trashy
     cifs-utils
     samba
     pulseaudio
@@ -185,6 +172,7 @@
   home-manager.useUserPackages = true;
   home-manager.users.robin = { config, pkgs, ... }: let
     terminal = "foot";
+    dotfilesDir = "${config.home.homeDirectory}/Config";
   in {
     home.stateVersion = "24.05";
     
@@ -197,10 +185,16 @@
       udiskie
 
       # applications
-      zed-editor
       pavucontrol
       swayimg
       (calibre.override { unrarSupport = true; })
+
+      # development
+      nil # nix language server
+      rust-analyzer
+      fzf
+      ripgrep
+      zed-editor
 
       # gameutils/monitoring/performance
       mprime
@@ -238,12 +232,12 @@
         #!/usr/bin/env sh
         exec steam -nofriendsui -no-browser +open "steam://open/minigameslist" 
       '')
-      (pkgs.writeShellScriptBin "fm" ''
+      (pkgs.writeShellScriptBin "yazi-run" ''
         #!/usr/bin/env sh
         if [ "$TERM" == "${terminal}" ]; then
-          exec ranger "$@"
+          exec yazi "$@"
         else
-          exec ${terminal} -e ranger "$@"
+          exec ${terminal} -e yazi "$@"
         fi
       '')
       (pkgs.writeShellScriptBin "toggleboost" ''
@@ -256,7 +250,7 @@
       '')
     ];
 
-    #programs.emacs.enable = true;
+    programs.emacs.enable = true;
     programs.vscode.enable = true;
     programs.zathura.enable = true;
     programs.firefox.enable = true;
@@ -284,19 +278,14 @@
     };
 
     home.sessionVariables = rec {
+      EDITOR = "hx";
       BROWSER = "firefox";
       DEFAULT_BROWSER = BROWSER;
-      ZDOTDIR = "${config.xdg.configHome}/zsh";
       MANGOHUD_CONFIG = "read_cfg,cpu_mhz,cpu_temp,cpu_power,gpu_temp,gpu_power,gpu_core_clock,fan,battery,round_corners=5.0,font_scale=0.6,alpha=0.6,background_alpha=0.5,gpu_load_change,cpu_load_change,gpu_load_color=FFFFFF+FFFFFF+FF9900,gpu_load_value=50+85,cpu_load_color=FFFFFF+FFFFFF+FF9900,cpu_load_value=65+85,frametime_color=888888,text_color=BDBDBD,gpu_color=00E5E5,cpu_color=00E5E5,vram_color=00E5E5,ram_color=00E5E5,engine_color=00E5E5,battery_color=00E5E5,offset_x=-10,offset_y=-10";
       GTK_THEME = "Adwaita:dark";
     };
     #systemd.user.sessionVariables = config.home.sessionVariables;
     
-    home.file = {
-      #".vimrc".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/files/.vimrc";
-      #".emacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/files/.emacs";
-    };
-
     programs.git = {
       enable = true;
       package = pkgs.gitAndTools.gitFull;
@@ -314,12 +303,12 @@
       {
         "org.codeberg.dnkl.foot-server" = hidden;
         "org.codeberg.dnkl.footclient" = hidden;
-        #"emacsclient" = hidden;
-        "ranger" = hidden;
-        "rangerfm" = {
-          name = "Ranger";
-          icon = "foot";
-          exec = "fm";
+        "emacsclient" = hidden;
+        "fish" = hidden;
+        "yazi" = {
+          name = "Yazi";
+          icon = "yazi";
+          exec = "yazi-run";
           categories = ["System"];
           mimeType = ["inode/directory"];
         };
@@ -333,14 +322,13 @@
       mimeApps = {
         enable = true;
         defaultApplications = {
-          "inode/directory"         = "rangerfm.desktop";
+          "inode/directory"         = "yazi.desktop";
           "text/html"               = "firefox.desktop";
           "text/xml"                = "firefox.desktop";
           "application/xhtml+xml"   = "firefox.desktop";
           "x-scheme-handler/http"   = "firefox.desktop";
           "x-scheme-handler/https"  = "firefox.desktop";
-          "application/pdf"         = "zathura.desktop";
-          "application/epub+zip"    = "calibre-ebook-viewer.desktop";
+          "application/pdf"         = "org.pwmt.zathura.desktop";
           "image/jpeg"              = "swayimg.desktop";
           "image/png"               = "swayimg.desktop";
         };
@@ -405,7 +393,7 @@
 
         wl-paste -t text --watch clipman store --no-persist &
         mako --background-color=#171717e0 --text-color=#ffffffe0 --border-color=#ffffffe0 --default-timeout=10000 --markup=1 --actions=1 --icons=1 &
-        udiskie --notify --automount --tray --appindicator --file-manager fm &
+        udiskie --notify --automount --tray --appindicator --file-manager yazi-run &
         blueman-applet &
         wait
       '';
@@ -430,7 +418,7 @@
       extraConfig = ''
         default_border pixel 1
         default_floating_border normal 1
-        bindsym ${modifier}+p exec fm
+        bindsym ${modifier}+p exec yazi-run
         bindsym ${modifier}+m exec fuzzel
         bindsym ${modifier}+Backspace kill
         bindsym XF86MonBrightnessDown exec light -U 10
@@ -460,60 +448,59 @@
       '';
     };
 
+    programs.yazi = {
+      enable = true;
+      enableFishIntegration = true;
+      settings = {
+        opener.edit = [{ run = ''hx "$@"''; block = true; }];
+        opener.open = [{ run = ''xdg-open "$@"''; }];
+        open.append_rules = [
+          { mime = "inode/directory"; use = "edit"; }
+          { mime = "text/*"; use = "edit"; }
+          { mime = "*"; use = "open"; }
+        ];
+        manager.prepend_keymap = [
+          { on = "<C-s>"; run  = ''shell "$SHELL" --block --confirm''; desc = "Open shell here"; }
+          { on = "<Esc>"; run = "close"; desc = "Cancel input"; }
+          { on = "l"; run = "plugin --sync smart-enter"; desc = "Enter the child directory, or open the file"; }
+        ];
+      };
+      plugins = {
+        smart-enter = ./files/yazi/plugins/smart-enter.yazi;
+      };
+    };
+
     programs.helix = {
       enable = true;
       settings = {
-        theme = "adwaita-dark";
+        theme = "dracula_at_night";
         editor = {
           cursorline = true;
         };
       };
     };
 
-    programs.zsh = {
+    programs.fish = {
       enable = true;
-      enableCompletion = true;
-      autosuggestion.enable = true;
-      syntaxHighlighting.enable = true;
-      autocd = true;
-      defaultKeymap = "emacs";
-      dotDir = ".config/zsh";
+      interactiveShellInit = ''
+        set fish_greeting
+        source (fzf-share)/key-bindings.fish
+        fzf_key_bindings
+      '';
       shellAliases = {
-        ll = "ls -l";
-        la = "ls -la";
         lsapps = "ls -l .local/share/applications /run/current-system/sw/share/applications /etc/profiles/per-user/robin/share/applications";
-        nixbuild = "sudo nixos-rebuild switch -I nixos-config=${config.home.homeDirectory}/dotfiles/configuration.nix";
-        nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${config.home.homeDirectory}/dotfiles/configuration.nix";
+        nixbuild = "sudo nixos-rebuild switch -I nixos-config=${dotfilesDir}/configuration.nix";
+        nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${dotfilesDir}/configuration.nix";
         nixdiff = "nix profile diff-closures --profile /nix/var/nix/profiles/system --extra-experimental-features nix-command";
         nixgc = "sudo nix-collect-garbage --delete-older-than 2d && sudo nix-env --list-generations --profile /nix/var/nix/profiles/system";
       };
-      history.size = 10000;
-      history.path = "${config.xdg.stateHome}/zsh_history";
-      initExtra = ''
-        _urlencode() {
-          local length="''${#1}"
-          for (( i = 0; i < length; i++ )); do
-            local c="''${1:$i:1}"
-            case $c in
-              %) printf '%%%02X' "'$c" ;;
-              *) printf "%s" "$c" ;;
-            esac
-          done
-        }
-
-        osc7_cwd() {
-          printf '\e]7;file://%s%s\e\\' "$HOSTNAME" "$(_urlencode "$PWD")"
-        }
-
-        autoload -Uz add-zsh-hook
-        add-zsh-hook -Uz chpwd osc7_cwd
-      '';
     };
 
     programs.foot = {
       enable = true;
       settings = {
         main = rec {
+          shell = "fish";
           font = "EnvyCodeR Nerd Font:size=10";
           font-bold = font;
           font-italic = font;
@@ -527,6 +514,11 @@
         };
         scrollback.lines = 10000;
       };
+    };
+
+    home.file = {
+      #".vimrc".source = config.lib.file.mkOutOfStoreSymlink "${dotfilesDir}/files/.vimrc";
+      ".emacs".source = config.lib.file.mkOutOfStoreSymlink "${dotfilesDir}/files/.emacs";
     };
   };
 }
