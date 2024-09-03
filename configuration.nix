@@ -90,7 +90,6 @@
   };
 
   systemd.services = {
-    #systemd-udev-settle.enable = false;
     NetworkManager-wait-online.enable = false;
     
     "getty@tty1" = {
@@ -160,6 +159,7 @@
     blueman.enable = true;
     dbus.enable = true;
     dbus.implementation = "broker";
+    speechd.enable = lib.mkForce false;
 
     locate = {
       enable = true;
@@ -206,6 +206,7 @@
     lm_sensors
     killall
     htop
+    btop
 
     # misc tools
     file
@@ -220,6 +221,14 @@
     sutils # for clock
     uwsm
   ];
+
+  environment.etc."current-system-packages".text =
+  let
+    packages = builtins.map (p: "${p.name}") config.environment.systemPackages;
+    sortedUnique = builtins.sort builtins.lessThan (pkgs.lib.lists.unique packages);
+    formatted = builtins.concatStringsSep "\n" sortedUnique;
+  in
+    formatted;
 
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
@@ -237,15 +246,22 @@
       mako
       udiskie
       brightnessctl
+      grim # screenshot
+      slurp # region selection
 
       # applications
       pavucontrol
       swayimg
+      gimp
       (calibre.override { unrarSupport = true; })
 
       # development
+      direnv
       nil # nix language server
       rust-analyzer
+      typescript-language-server
+      python312Packages.python-lsp-server
+      bun
       fzf
       ripgrep
       zed-editor
@@ -484,6 +500,8 @@
         bindsym XF86AudioLowerVolume exec 'pactl set-sink-volume @DEFAULT_SINK@ -1%'
         bindsym XF86AudioMute exec 'pactl set-sink-mute @DEFAULT_SINK@ toggle'
         bindsym XF86AudioMicMute exec 'pactl set-source-mute @DEFAULT_SOURCE@ toggle'
+        bindsym Print exec 'grim - | wl-copy'
+        bindsym Shift+Print exec 'grim -g "$(slurp)" - | wl-copy'
         output * bg ${./files/wallpaper.jpg} fill
         output * adaptive_sync on
         input type:keyboard {
@@ -530,7 +548,7 @@
     programs.helix = {
       enable = true;
       settings = {
-        theme = "dracula_at_night";
+        theme = "ayu_evolve";
         editor = {
           cursorline = true;
         };
@@ -541,6 +559,7 @@
       enable = true;
       interactiveShellInit = ''
         set fish_greeting
+        direnv hook fish | source
         source (fzf-share)/key-bindings.fish
         fzf_key_bindings
         if uwsm check may-start;
