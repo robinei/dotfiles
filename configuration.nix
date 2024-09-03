@@ -193,7 +193,6 @@
   
   programs.ssh.startAgent = true;
   programs.fish.enable = true;
-  programs.light.enable = true;
   programs.dconf.enable = true;
   programs.steam.enable = true;
 
@@ -237,6 +236,7 @@
       libnotify
       mako
       udiskie
+      brightnessctl
 
       # applications
       pavucontrol
@@ -478,8 +478,8 @@
         bindsym ${modifier}+p exec yazi-run
         bindsym ${modifier}+m exec fuzzel
         bindsym ${modifier}+Backspace kill
-        bindsym XF86MonBrightnessDown exec light -U 10
-        bindsym XF86MonBrightnessUp exec light -A 10
+        bindsym XF86MonBrightnessDown exec brightnessctl set 5%-
+        bindsym XF86MonBrightnessUp exec brightnessctl set 5%+
         bindsym XF86AudioRaiseVolume exec 'pactl set-sink-volume @DEFAULT_SINK@ +1%'
         bindsym XF86AudioLowerVolume exec 'pactl set-sink-volume @DEFAULT_SINK@ -1%'
         bindsym XF86AudioMute exec 'pactl set-sink-mute @DEFAULT_SINK@ toggle'
