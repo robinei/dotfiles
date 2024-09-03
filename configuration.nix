@@ -19,10 +19,7 @@
     "/persist".neededForBoot = true;
     "/var/log".options = ["compress-force=zstd:1" "noatime" ];
     "/var/log".neededForBoot = true;
-    "/mnt/old" = {
-      device = "/dev/sda3";
-      fsType = "ext4";
-    };
+    #"/mnt/old" = { device = "/dev/sda3"; fsType = "ext4"; };
   };
 
   boot = {
@@ -74,11 +71,11 @@
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" ];
     hashedPasswordFile = "/persist/passwords/robin";
+    shell = pkgs.fish;
   };
 
   powerManagement = {
     enable = true;
-    powertop.enable = true;
     cpuFreqGovernor = "schedutil";
   };
 
@@ -91,9 +88,18 @@
     ];
     #xdgOpenUsePortal = true; # does not respect host mimeapps: https://github.com/flatpak/xdg-desktop-portal-gtk/issues/436
   };
+
+  #systemd.services.systemd-udev-settle.enable = false;
+  systemd.services.NetworkManager-wait-online.enable = false;
+  systemd.services."getty@tty1" = {
+    overrideStrategy = "asDropin";
+    serviceConfig.ExecStart = ["" "@${pkgs.util-linux}/sbin/agetty agetty --login-program ${config.services.getty.loginProgram} --autologin robin --noclear --keep-baud %I 115200,38400,9600 $TERM"];
+    serviceConfig.TTYVTDisallocate = false;
+  };
   
   services = {
     udisks2.enable = true;
+    upower.enable = true;
     devmon.enable = true;
     flatpak.enable = true;
     blueman.enable = true;
@@ -112,24 +118,13 @@
       xkb.layout = "no";
       xkb.options = "ctrl:nocaps";
       excludePackages = [ pkgs.xterm ];
+      displayManager.startx.enable = true; # disables display manager
     };
 
     pipewire = {
       enable = true;
       alsa.enable = true;
       pulse.enable = true;
-    };
-
-    greetd = {
-      enable = true;
-      settings = rec {
-        initial_session = {
-          #command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway -D noscanout";
-          command = "dbus-run-session sway -D noscanout";
-          user = "robin";
-        };
-        default_session = initial_session;
-      };
     };
   };
 
@@ -148,24 +143,28 @@
   programs.steam.enable = true;
 
   environment.systemPackages = with pkgs; [
-    duperemove
-    file
-    htop
+    # system tools
+    duperemove # btrfs dedup
     usbutils
     pciutils
+    smartmontools
     powertop
     lm_sensors
-    sutils # for clock
+    killall
+    htop
+
+    # misc tools
+    file
     python3
     wget
     curl
-    killall
     jq
-    ouch
-    trashy
-    cifs-utils
-    samba
-    pulseaudio
+    ouch # compression/decompression
+    trashy # trash can manager
+    cifs-utils # for mounting samba shares
+    pulseaudio # for pavucontrol
+    sutils # for clock
+    uwsm
   ];
 
   home-manager.useGlobalPkgs = true;
@@ -204,6 +203,8 @@
       protontricks
 
       # games
+      arx-libertatis
+      cdogs-sdl
       exult
       fheroes2
       openttd
@@ -389,7 +390,8 @@
       ia = "#ffffffe0";
       bk = "#000000e0";
       startupScript = builtins.toFile "startup.sh" ''
-        systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+        #systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+        uwsm finalize
 
         wl-paste -t text --watch clipman store --no-persist &
         mako --background-color=#171717e0 --text-color=#ffffffe0 --border-color=#ffffffe0 --default-timeout=10000 --markup=1 --actions=1 --icons=1 &
@@ -452,6 +454,7 @@
       enable = true;
       enableFishIntegration = true;
       settings = {
+        manager.linemode = "mtime";
         opener.edit = [{ run = ''hx "$@"''; block = true; }];
         opener.open = [{ run = ''xdg-open "$@"''; }];
         open.append_rules = [
@@ -459,14 +462,13 @@
           { mime = "text/*"; use = "edit"; }
           { mime = "*"; use = "open"; }
         ];
-        manager.prepend_keymap = [
-          { on = "<C-s>"; run  = ''shell "$SHELL" --block --confirm''; desc = "Open shell here"; }
-          { on = "<Esc>"; run = "close"; desc = "Cancel input"; }
-          { on = "l"; run = "plugin --sync smart-enter"; desc = "Enter the child directory, or open the file"; }
-        ];
       };
-      plugins = {
-        smart-enter = ./files/yazi/plugins/smart-enter.yazi;
+      keymap = {
+        manager.prepend_keymap = [
+          { on = "<C-s>"; run  = ''shell fish --block --confirm''; desc = "Open shell here"; }
+          #{ on = "<Esc>"; run = "close"; desc = "Cancel input"; }
+          #{ on = "y"; run = [''shell 'for path in "$@"; do echo "file://$path"; done | wl-copy -t text/uri-list' --confirm'' "yank"]; desc = "Yank"; }
+        ];
       };
     };
 
@@ -480,19 +482,23 @@
       };
     };
 
-    programs.fish = {
+    programs.fish = let startwm = "systemd-cat -t uwsm_start uwsm start -- /etc/profiles/per-user/robin/bin/sway -D noscanout"; in {
       enable = true;
       interactiveShellInit = ''
         set fish_greeting
         source (fzf-share)/key-bindings.fish
         fzf_key_bindings
+        if uwsm check may-start;
+          ${startwm}
+        end
       '';
       shellAliases = {
-        lsapps = "ls -l .local/share/applications /run/current-system/sw/share/applications /etc/profiles/per-user/robin/share/applications";
+        lsapps = "ls -l ~/.local/share/applications /run/current-system/sw/share/applications /etc/profiles/per-user/robin/share/applications";
         nixbuild = "sudo nixos-rebuild switch -I nixos-config=${dotfilesDir}/configuration.nix";
         nixupgrade = "sudo nixos-rebuild switch --upgrade -I nixos-config=${dotfilesDir}/configuration.nix";
         nixdiff = "nix profile diff-closures --profile /nix/var/nix/profiles/system --extra-experimental-features nix-command";
         nixgc = "sudo nix-collect-garbage --delete-older-than 2d && sudo nix-env --list-generations --profile /nix/var/nix/profiles/system";
+        wm = startwm;
       };
     };
 
