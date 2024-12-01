@@ -61,7 +61,7 @@
   fonts.packages = with pkgs; [
     ttf-envy-code-r
     font-awesome_5
-    (nerdfonts.override { fonts = [ "EnvyCodeR" ]; })
+    nerd-fonts.envy-code-r
   ];
 
   users.mutableUsers = false;

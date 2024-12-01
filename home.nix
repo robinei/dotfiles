@@ -22,7 +22,6 @@ in {
     gimp
     mpv
     calibre
-    #(calibre.override { unrarSupport = true; })
 
     # development
     direnv
@@ -50,7 +49,7 @@ in {
     openttd
     openrct2
     openxcom
-    openra
+    #openra # https://github.com/NixOS/nixpkgs/issues/360335
     openmw
     corsix-th
     devilutionx
@@ -61,12 +60,7 @@ in {
     dosbox-staging
     dolphin-emu
     ppsspp
-    (retroarch.override {
-      cores = with libretro; [
-        mgba
-        snes9x
-      ];
-    })
+    retroarch
 
     # scripts
     (pkgs.writeShellScriptBin "steamlite" ''
