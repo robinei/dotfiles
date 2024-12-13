@@ -43,7 +43,7 @@ in {
 
     # games
     arx-libertatis
-    cdogs-sdl
+    #cdogs-sdl
     exult
     fheroes2
     openttd
@@ -267,6 +267,8 @@ in {
       bindsym Shift+Print exec 'grim -g "$(slurp)" - | wl-copy'
       output * bg ${./files/wallpaper.jpg} fill
       output * adaptive_sync on
+      output eDP-1 pos 0 0 res 1920x1080 scale 1
+      output DP-1 pos 1920 0 mode --custom 3840x2160@59.997Hz scale 1.25
       input type:keyboard {
         xkb_layout "no"
         xkb_options "ctrl:nocaps"
