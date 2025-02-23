@@ -22,6 +22,7 @@ in {
     gimp
     mpv
     calibre
+    signal-desktop
 
     # development
     direnv
