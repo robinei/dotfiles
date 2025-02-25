@@ -33,7 +33,7 @@ in {
     bun
     fzf
     ripgrep
-    zed-editor
+    #zed-editor
 
     # gameutils/monitoring/performance
     mprime
@@ -47,7 +47,7 @@ in {
     #cdogs-sdl
     exult
     fheroes2
-    openttd
+    #openttd
     openrct2
     openxcom
     #openra # https://github.com/NixOS/nixpkgs/issues/360335
@@ -285,6 +285,7 @@ in {
         tap_button_map lrm
         click_method clickfinger
       }
+      for_window [title="^Sid Meier's Alpha Centauri$"] floating enable, border none, move position 0 0, resize set width 1920 height 1080
       exec sh ${startupScript}
     '';
   };
