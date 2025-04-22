@@ -23,6 +23,8 @@ in {
     mpv
     calibre
     signal-desktop
+    filezilla
+    gparted
 
     # development
     direnv
@@ -34,6 +36,7 @@ in {
     fzf
     ripgrep
     #zed-editor
+    code-cursor
 
     # gameutils/monitoring/performance
     mprime
@@ -44,10 +47,10 @@ in {
 
     # games
     arx-libertatis
-    #cdogs-sdl
+    cdogs-sdl
     exult
     fheroes2
-    #openttd
+    openttd
     openrct2
     openxcom
     #openra # https://github.com/NixOS/nixpkgs/issues/360335
