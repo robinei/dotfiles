@@ -43,6 +43,10 @@
         cp ${./files/edid.bin} $out/lib/firmware/edid/edid.bin
       '')
     ];
+    graphics = {
+        enable = true;
+        enable32Bit = true;
+    };
   };
 
   networking.hostName = "laptop";
@@ -207,7 +211,12 @@
   programs.ssh.startAgent = true;
   programs.fish.enable = true;
   programs.dconf.enable = true;
-  programs.steam.enable = true;
+  programs.steam = {
+    enable = true;
+    package = pkgs.steam.override {
+       extraPkgs = pkgs: with pkgs; [ libGLU sdl2-compat libinstpatch ];
+    };
+  };
 
   environment.systemPackages = with pkgs; [
     # system tools
@@ -228,6 +237,7 @@
     wget
     curl
     jq
+    ncdu
     ouch # compression/decompression
     trashy # trash can manager
     cifs-utils # for mounting samba shares
